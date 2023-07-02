@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Searchbar from './components/Searchbar/Searchbar';
 import ImageGallery from './components/ImageGallery/ImageGallery';
@@ -6,35 +6,36 @@ import Button from './components/Button/Button';
 import Loader from './components/Loader/Loader';
 import Modal from './components/Modal/Modal';
 import css from 'App.module.css';
+
 const API_KEY = '35858797-639b225fbbec7c1b27496629b';
 
-class App extends Component {
-  state = {
-    searchQuery: '',
-    images: [],
-    isLoading: false,
-    selectedImage: null,
-    page: 1,
-    error: null,
+const App = () => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [images, setImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [page, setPage] = useState(1);
+  const [error, setError] = useState(null);
+
+  const handleSubmit = query => {
+    setSearchQuery(query);
+    setImages([]);
+    setPage(1);
   };
 
-  handleSubmit = query => {
-    this.setState({ searchQuery: query, images: [], page: 1 });
+  const handleImageClick = image => {
+    setSelectedImage(image);
   };
 
-  handleImageClick = image => {
-    this.setState({ selectedImage: image });
+  const handleLoadMore = () => {
+    setPage(prevPage => prevPage + 1);
   };
 
-  handleLoadMore = () => {
-    this.setState(prevState => ({ page: prevState.page + 1 }));
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      if (searchQuery === '') return;
 
-  async componentDidUpdate(prevProps, prevState) {
-    const { searchQuery, page } = this.state;
-
-    if (prevState.searchQuery !== searchQuery || prevState.page !== page) {
-      this.setState({ isLoading: true });
+      setIsLoading(true);
 
       try {
         const response = await axios.get('https://pixabay.com/api/', {
@@ -48,45 +49,37 @@ class App extends Component {
           },
         });
 
-        this.setState(prevState => ({
-          images: [...prevState.images, ...response.data.hits],
-          isLoading: false,
-        }));
+        setImages(prevImages => [...prevImages, ...response.data.hits]);
+        setIsLoading(false);
       } catch (error) {
-        this.setState({ error });
+        setError(error);
       } finally {
-        this.setState({ isLoading: false });
+        setIsLoading(false);
       }
-    }
+    };
+
+    fetchData();
+  }, [searchQuery, page]);
+
+  if (error) {
+    return <div>Oops, something went wrong</div>;
   }
 
-  render() {
-    const { images, isLoading, selectedImage, error } = this.state;
-    if (error) {
-      return <div>Oops, something went wrong</div>;
-    }
+  return (
+    <div className={css.App}>
+      <Searchbar onSubmit={handleSubmit} />
 
-    return (
-      <div className={css.App}>
-        <Searchbar onSubmit={this.handleSubmit} />
+      {images.length > 0 && (
+        <ImageGallery images={images} onImageClick={handleImageClick} />
+      )}
+      {isLoading && <Loader />}
+      {images.length > 0 && !isLoading && <Button onClick={handleLoadMore} />}
 
-        {images.length > 0 && (
-          <ImageGallery images={images} onImageClick={this.handleImageClick} />
-        )}
-        {isLoading && <Loader />}
-        {images.length > 0 && !isLoading && (
-          <Button onClick={this.handleLoadMore} />
-        )}
-
-        {selectedImage && (
-          <Modal
-            image={selectedImage}
-            onClose={() => this.setState({ selectedImage: null })}
-          />
-        )}
-      </div>
-    );
-  }
-}
+      {selectedImage && (
+        <Modal image={selectedImage} onClose={() => setSelectedImage(null)} />
+      )}
+    </div>
+  );
+};
 
 export default App;
